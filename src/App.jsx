@@ -29,8 +29,6 @@ import {
 } from 'firebase/firestore';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Reemplaza esto con tus credenciales de la consola de Firebase
-// Si dejas "TU_API_KEY_AQUI", la app te mostrará un aviso de configuración.
 const firebaseConfig = {
   apiKey: "AIzaSyCWMcQxF8ERx0ClExjFo6czkJjfQYx-GcQ",
   authDomain: "gestioncitas-app.firebaseapp.com",
@@ -39,9 +37,6 @@ const firebaseConfig = {
   messagingSenderId: "602853319594",
   appId: "1:602853319594:web:7871121292f9900e2981d3"
 };
-
-// Validación simple para evitar errores de consola si no se ha configurado
-const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
 const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
@@ -76,7 +71,8 @@ const Badge = ({ status }) => {
   );
 };
 
-// --- Vistas Extraídas (Solución al problema del foco) ---
+// --- VISTAS EXTERNAS (Clave para evitar pérdida de foco) ---
+// Al estar definidas FUERA de la función App, React no las recrea en cada tecleo.
 
 const DashboardView = ({ user, patients, appointments, setView }) => {
   const activeCount = patients.filter(p => p.status === 'Activo').length;
@@ -138,7 +134,7 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
 };
 
 const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, setView, setSelectedPatient }) => {
-  const filtered = patients.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Manejo seguro del input para evitar renders innecesarios
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -147,10 +143,16 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-        <input type="text" placeholder="Buscar paciente..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <input 
+          type="text" 
+          placeholder="Buscar paciente..." 
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" 
+          value={searchTerm} 
+          onChange={(e) => setSearchTerm(e.target.value)} 
+        />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(p => (
+        {patients.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase())).map(p => (
           <Card key={p.id} className="p-5 hover:shadow-md transition-shadow cursor-pointer">
             <div onClick={() => { setSelectedPatient(p); setView('details'); }}>
               <div className="flex justify-between mb-3">
@@ -167,6 +169,65 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
     </div>
   );
 };
+
+const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) => (
+  <div className="max-w-2xl mx-auto animate-fade-in">
+    <button onClick={() => setView('patients')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
+    <Card className="p-8">
+      <h2 className="text-2xl font-bold mb-6">{formData.id ? 'Editar' : 'Nuevo'} Paciente</h2>
+      <form onSubmit={handleSavePatient} className="space-y-4">
+        <input required placeholder="Nombre Completo" className="w-full p-3 border rounded" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+        <div className="grid grid-cols-2 gap-4">
+          <input type="number" placeholder="Edad" className="w-full p-3 border rounded" value={formData.age || ''} onChange={e => setFormData({...formData, age: e.target.value})} />
+          <input type="tel" placeholder="Teléfono" className="w-full p-3 border rounded" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
+        </div>
+        <input type="email" placeholder="Email" className="w-full p-3 border rounded" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
+        <input placeholder="Diagnóstico" className="w-full p-3 border rounded" value={formData.diagnosis || ''} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
+        <select className="w-full p-3 border rounded bg-white" value={formData.status || 'Activo'} onChange={e => setFormData({...formData, status: e.target.value})}>
+          <option value="Activo">Activo</option>
+          <option value="En Pausa">En Pausa</option>
+          <option value="Alta">Alta</option>
+        </select>
+        <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">Guardar Expediente</button>
+      </form>
+    </Card>
+  </div>
+);
+
+const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFormData, patients }) => (
+  <div className="max-w-xl mx-auto animate-fade-in">
+     <button onClick={() => setView('calendar')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
+     <Card className="p-8">
+       <h2 className="text-2xl font-bold mb-6">Agendar Cita</h2>
+       <form onSubmit={handleSaveAppointment} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Paciente</label>
+            <select required className="w-full p-3 border rounded bg-white" value={apptFormData.patientId || ''} onChange={e => setApptFormData({...apptFormData, patientId: e.target.value})}>
+              <option value="">Selecciona un paciente...</option>
+              {patients.filter(p => p.status === 'Activo').map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+              <input required type="date" className="w-full p-3 border rounded" value={apptFormData.date || ''} onChange={e => setApptFormData({...apptFormData, date: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
+              <input required type="time" className="w-full p-3 border rounded" value={apptFormData.time || ''} onChange={e => setApptFormData({...apptFormData, time: e.target.value})} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nota (Opcional)</label>
+            <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
+          </div>
+          <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4">Confirmar Cita</button>
+       </form>
+     </Card>
+  </div>
+);
 
 const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, handleDelete, handleAddSession }) => {
   if (!selectedPatient) return null;
@@ -213,30 +274,6 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
     </div>
   );
 };
-
-const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) => (
-  <div className="max-w-2xl mx-auto animate-fade-in">
-    <button onClick={() => setView('patients')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
-    <Card className="p-8">
-      <h2 className="text-2xl font-bold mb-6">{formData.id ? 'Editar' : 'Nuevo'} Paciente</h2>
-      <form onSubmit={handleSavePatient} className="space-y-4">
-        <input required placeholder="Nombre Completo" className="w-full p-3 border rounded" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-        <div className="grid grid-cols-2 gap-4">
-          <input type="number" placeholder="Edad" className="w-full p-3 border rounded" value={formData.age || ''} onChange={e => setFormData({...formData, age: e.target.value})} />
-          <input type="tel" placeholder="Teléfono" className="w-full p-3 border rounded" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
-        </div>
-        <input type="email" placeholder="Email" className="w-full p-3 border rounded" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-        <input placeholder="Diagnóstico" className="w-full p-3 border rounded" value={formData.diagnosis || ''} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
-        <select className="w-full p-3 border rounded bg-white" value={formData.status || 'Activo'} onChange={e => setFormData({...formData, status: e.target.value})}>
-          <option value="Activo">Activo</option>
-          <option value="En Pausa">En Pausa</option>
-          <option value="Alta">Alta</option>
-        </select>
-        <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">Guardar Expediente</button>
-      </form>
-    </Card>
-  </div>
-);
 
 const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) => {
   const groupedAppts = appointments.reduce((acc, appt) => {
@@ -294,41 +331,6 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) 
     </div>
   );
 };
-
-const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFormData, patients }) => (
-  <div className="max-w-xl mx-auto animate-fade-in">
-     <button onClick={() => setView('calendar')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
-     <Card className="p-8">
-       <h2 className="text-2xl font-bold mb-6">Agendar Cita</h2>
-       <form onSubmit={handleSaveAppointment} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Paciente</label>
-            <select required className="w-full p-3 border rounded bg-white" value={apptFormData.patientId || ''} onChange={e => setApptFormData({...apptFormData, patientId: e.target.value})}>
-              <option value="">Selecciona un paciente...</option>
-              {patients.filter(p => p.status === 'Activo').map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
-              <input required type="date" className="w-full p-3 border rounded" value={apptFormData.date || ''} onChange={e => setApptFormData({...apptFormData, date: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
-              <input required type="time" className="w-full p-3 border rounded" value={apptFormData.time || ''} onChange={e => setApptFormData({...apptFormData, time: e.target.value})} />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nota (Opcional)</label>
-            <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4">Confirmar Cita</button>
-       </form>
-     </Card>
-  </div>
-);
 
 // --- Componente Principal APP ---
 
