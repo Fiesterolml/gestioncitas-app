@@ -164,7 +164,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `psicomanager_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `gestioncitas_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -185,7 +185,7 @@ export default function App() {
         
         // Validación básica
         if (!json.patients && !json.appointments) {
-          alert("El archivo no parece ser una copia de seguridad válida de PsicoManager.");
+          alert("El archivo no parece ser una copia de seguridad válida de GestiónCitas.");
           return;
         }
 
@@ -199,14 +199,10 @@ export default function App() {
           // Importar Pacientes
           if (json.patients && Array.isArray(json.patients)) {
             for (const p of json.patients) {
-              // Limpiamos timestamps antiguos para evitar errores de tipo, se generarán nuevos al editar
-              // Usamos setDoc para mantener el ID original si es posible, o sobreescribir si ya existe
               const { id, ...data } = p;
-              // Aseguramos timestamps válidos para Firestore
               const cleanData = {
                 ...data,
                 updatedAt: serverTimestamp(),
-                // Si no tiene createdAt (ej. importación), ponemos timestamp, si ya tiene, intentamos respetarlo o renovarlo
                 createdAt: serverTimestamp() 
               };
               await setDoc(doc(db, 'users', user.uid, 'patients', id), cleanData);
@@ -232,10 +228,9 @@ export default function App() {
         }
       } catch (error) {
         console.error("Error importando:", error);
-        alert("Ocurrió un error al leer el archivo o subir los datos. Revisa la consola para más detalles.");
+        alert("Ocurrió un error al leer el archivo o subir los datos.");
       } finally {
         setLoading(false);
-        // Limpiar el input para permitir seleccionar el mismo archivo de nuevo si es necesario
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
@@ -338,8 +333,8 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full p-8 text-center">
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6"><Activity className="w-8 h-8 text-white" /></div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">PsicoManager</h1>
-          <p className="text-slate-500 mb-8">Gestión segura de pacientes y citas.</p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">GestiónCitas</h1>
+          <p className="text-slate-500 mb-8">Gestión profesional de pacientes y agenda.</p>
           <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border hover:bg-slate-50 py-3 rounded-xl transition-all shadow-sm">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
             <span>Entrar con Google</span>
@@ -605,7 +600,7 @@ export default function App() {
     <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b flex justify-between items-center">
-          <div className="flex items-center gap-2 text-blue-600 font-bold text-xl"><Activity/> PsicoManager</div>
+          <div className="flex items-center gap-2 text-blue-600 font-bold text-xl"><Activity/> GestiónCitas</div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden"><X/></button>
         </div>
         <nav className="p-4 space-y-2">
@@ -637,7 +632,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="md:hidden p-4 bg-white border-b flex justify-between items-center">
            <button onClick={() => setIsSidebarOpen(true)}><Users/></button>
-           <span className="font-bold">PsicoManager</span>
+           <span className="font-bold">GestiónCitas</span>
            <div className="w-6"></div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
