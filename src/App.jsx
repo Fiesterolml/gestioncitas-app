@@ -364,24 +364,25 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Suscripción a pacientes
+        // 1. Pacientes
         const qPatients = query(collection(db, 'users', currentUser.uid, 'patients'), orderBy('createdAt', 'desc'));
         const unsubPatients = onSnapshot(qPatients, (snapshot) => {
           setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, (error) => {
-          console.error("Error cargando pacientes:", error);
-          // No detenemos loading aquí, esperamos a las citas, pero logueamos
-        });
+        }, (error) => console.error("Error pacientes:", error));
 
-        // Suscripción a citas (esta controla el loading principal)
-        const qAppts = query(collection(db, 'users', currentUser.uid, 'appointments'), orderBy('date', 'asc'), orderBy('time', 'asc'));
+        // 2. Citas (CONSULTA SIMPLIFICADA PARA EVITAR ERROR DE ÍNDICE)
+        // Solo ordenamos por fecha en la nube. La hora la ordenamos aquí en el código.
+        const qAppts = query(collection(db, 'users', currentUser.uid, 'appointments'), orderBy('date', 'asc'));
         const unsubAppts = onSnapshot(qAppts, (snapshot) => {
-          setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Ordenar manualmente por hora para evitar requerir un índice compuesto en Firebase
+          data.sort((a, b) => a.time.localeCompare(b.time));
+          setAppointments(data);
           setLoading(false);
         }, (error) => {
-          console.error("Error cargando citas:", error);
+          console.error("Error citas:", error);
           alert("Error de conexión: " + error.message);
-          setLoading(false); // IMPORTANTE: Dejar de cargar aunque haya error
+          setLoading(false);
         });
 
         return () => { unsubPatients(); unsubAppts(); };
@@ -461,9 +462,14 @@ export default function App() {
     if (!user) return;
     try {
       const patient = patients.find(p => p.id === apptFormData.patientId);
+      if (!patient) {
+        alert("Error: No se encontró el paciente seleccionado.");
+        return;
+      }
+
       const data = { 
         patientId: apptFormData.patientId, 
-        patientName: patient ? patient.name : 'Desconocido', 
+        patientName: patient.name || 'Desconocido', 
         date: apptFormData.date, 
         time: apptFormData.time, 
         note: apptFormData.note || '', 
