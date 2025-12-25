@@ -20,7 +20,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
-  setDoc, // Necesario para importar manteniendo IDs
+  setDoc,
   doc, 
   onSnapshot, 
   query, 
@@ -71,8 +71,7 @@ const Badge = ({ status }) => {
   );
 };
 
-// --- VISTAS EXTERNAS (Clave para evitar pérdida de foco) ---
-// Al estar definidas FUERA de la función App, React no las recrea en cada tecleo.
+// --- VISTAS EXTERNAS ---
 
 const DashboardView = ({ user, patients, appointments, setView }) => {
   const activeCount = patients.filter(p => p.status === 'Activo').length;
@@ -134,7 +133,6 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
 };
 
 const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, setView, setSelectedPatient }) => {
-  // Manejo seguro del input para evitar renders innecesarios
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -194,40 +192,49 @@ const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) 
   </div>
 );
 
-const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFormData, patients }) => (
-  <div className="max-w-xl mx-auto animate-fade-in">
-     <button onClick={() => setView('calendar')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
-     <Card className="p-8">
-       <h2 className="text-2xl font-bold mb-6">Agendar Cita</h2>
-       <form onSubmit={handleSaveAppointment} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Paciente</label>
-            <select required className="w-full p-3 border rounded bg-white" value={apptFormData.patientId || ''} onChange={e => setApptFormData({...apptFormData, patientId: e.target.value})}>
-              <option value="">Selecciona un paciente...</option>
-              {patients.filter(p => p.status === 'Activo').map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFormData, patients }) => {
+  const activePatients = patients.filter(p => p.status === 'Activo');
+  
+  return (
+    <div className="max-w-xl mx-auto animate-fade-in">
+       <button onClick={() => setView('calendar')} className="mb-4 text-slate-500 flex items-center gap-1"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
+       <Card className="p-8">
+         <h2 className="text-2xl font-bold mb-6">Agendar Cita</h2>
+         {activePatients.length === 0 ? (
+           <div className="text-amber-600 bg-amber-50 p-4 rounded-lg mb-4 text-sm">
+             ⚠️ No tienes pacientes "Activos" para agendar. Ve a la sección de Pacientes y crea uno nuevo o cambia el estado de uno existente.
+           </div>
+         ) : null}
+         <form onSubmit={handleSaveAppointment} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
-              <input required type="date" className="w-full p-3 border rounded" value={apptFormData.date || ''} onChange={e => setApptFormData({...apptFormData, date: e.target.value})} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Paciente</label>
+              <select required className="w-full p-3 border rounded bg-white" value={apptFormData.patientId || ''} onChange={e => setApptFormData({...apptFormData, patientId: e.target.value})}>
+                <option value="">Selecciona un paciente...</option>
+                {activePatients.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+                <input required type="date" className="w-full p-3 border rounded" value={apptFormData.date || ''} onChange={e => setApptFormData({...apptFormData, date: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
+                <input required type="time" className="w-full p-3 border rounded" value={apptFormData.time || ''} onChange={e => setApptFormData({...apptFormData, time: e.target.value})} />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
-              <input required type="time" className="w-full p-3 border rounded" value={apptFormData.time || ''} onChange={e => setApptFormData({...apptFormData, time: e.target.value})} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nota (Opcional)</label>
+              <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nota (Opcional)</label>
-            <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4">Confirmar Cita</button>
-       </form>
-     </Card>
-  </div>
-);
+            <button type="submit" disabled={activePatients.length === 0} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4 disabled:opacity-50 disabled:cursor-not-allowed">Confirmar Cita</button>
+         </form>
+       </Card>
+    </div>
+  );
+};
 
 const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, handleDelete, handleAddSession }) => {
   if (!selectedPatient) return null;
@@ -357,15 +364,26 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Suscripción a pacientes
         const qPatients = query(collection(db, 'users', currentUser.uid, 'patients'), orderBy('createdAt', 'desc'));
         const unsubPatients = onSnapshot(qPatients, (snapshot) => {
           setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (error) => {
+          console.error("Error cargando pacientes:", error);
+          // No detenemos loading aquí, esperamos a las citas, pero logueamos
         });
+
+        // Suscripción a citas (esta controla el loading principal)
         const qAppts = query(collection(db, 'users', currentUser.uid, 'appointments'), orderBy('date', 'asc'), orderBy('time', 'asc'));
         const unsubAppts = onSnapshot(qAppts, (snapshot) => {
           setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           setLoading(false);
+        }, (error) => {
+          console.error("Error cargando citas:", error);
+          alert("Error de conexión: " + error.message);
+          setLoading(false); // IMPORTANTE: Dejar de cargar aunque haya error
         });
+
         return () => { unsubPatients(); unsubAppts(); };
       } else {
         setPatients([]);
@@ -435,7 +453,7 @@ export default function App() {
       if (formData.id) await updateDoc(doc(db, 'users', user.uid, 'patients', formData.id), data);
       else await addDoc(collection(db, 'users', user.uid, 'patients'), { ...data, sessions: [], startDate: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() });
       setView('patients'); setFormData({});
-    } catch (error) { alert("Error guardando paciente"); }
+    } catch (error) { console.error(error); alert("Error guardando paciente: " + error.message); }
   };
 
   const handleSaveAppointment = async (e) => {
@@ -443,17 +461,37 @@ export default function App() {
     if (!user) return;
     try {
       const patient = patients.find(p => p.id === apptFormData.patientId);
-      const data = { patientId: apptFormData.patientId, patientName: patient ? patient.name : 'Desconocido', date: apptFormData.date, time: apptFormData.time, note: apptFormData.note || '', updatedAt: serverTimestamp() };
-      if (apptFormData.id) await updateDoc(doc(db, 'users', user.uid, 'appointments', apptFormData.id), data);
-      else await addDoc(collection(db, 'users', user.uid, 'appointments'), { ...data, createdAt: serverTimestamp() });
-      setView('calendar'); setApptFormData({});
-    } catch (error) { alert("Error guardando cita"); }
+      const data = { 
+        patientId: apptFormData.patientId, 
+        patientName: patient ? patient.name : 'Desconocido', 
+        date: apptFormData.date, 
+        time: apptFormData.time, 
+        note: apptFormData.note || '', 
+        updatedAt: serverTimestamp() 
+      };
+
+      if (apptFormData.id) {
+         await updateDoc(doc(db, 'users', user.uid, 'appointments', apptFormData.id), data);
+      } else {
+         await addDoc(collection(db, 'users', user.uid, 'appointments'), { ...data, createdAt: serverTimestamp() });
+      }
+      setView('calendar'); 
+      setApptFormData({});
+    } catch (error) { 
+      console.error(error); 
+      alert("Error guardando cita: " + error.message); 
+    }
   };
 
   const handleDelete = async (collectionName, id) => {
     if (window.confirm("¿Estás seguro de eliminar este registro?")) {
-      await deleteDoc(doc(db, 'users', user.uid, collectionName, id));
-      if (collectionName === 'patients' && selectedPatient?.id === id) setView('patients');
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, collectionName, id));
+        if (collectionName === 'patients' && selectedPatient?.id === id) setView('patients');
+      } catch (error) {
+        console.error(error);
+        alert("Error al eliminar: " + error.message);
+      }
     }
   };
 
@@ -462,7 +500,12 @@ export default function App() {
     const patient = patients.find(p => p.id === patientId);
     if (!patient) return;
     const newSession = { id: Date.now(), date: new Date().toISOString().split('T')[0], note: noteText };
-    await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: [newSession, ...(patient.sessions || [])] });
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: [newSession, ...(patient.sessions || [])] });
+    } catch (error) {
+      console.error(error);
+      alert("Error al guardar nota: " + error.message);
+    }
   };
 
   if (configError) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><Card className="max-w-md w-full p-8 text-center border-l-4 border-l-amber-500"><Activity className="w-12 h-12 text-amber-500 mx-auto mb-4" /><h2 className="text-xl font-bold text-slate-800 mb-2">Configuración Necesaria</h2><p className="text-slate-600 mb-6">Configura tus credenciales de Firebase en App.jsx</p></Card></div>;
