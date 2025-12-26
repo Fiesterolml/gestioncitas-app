@@ -185,7 +185,14 @@ const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) 
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
-            <input type="tel" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
+            {/* Validación para solo números */}
+            <input 
+              type="tel" 
+              placeholder="Solo números"
+              className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" 
+              value={formData.phone || ''} 
+              onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})} 
+            />
           </div>
         </div>
         <div>
@@ -483,17 +490,29 @@ export default function App() {
     e.preventDefault();
     if (!user) return;
     try {
-      const data = { 
-        name: formData.name || '', 
-        age: formData.age || '', 
-        phone: formData.phone || '', 
-        email: formData.email || '', 
-        diagnosis: formData.diagnosis || '', 
-        status: formData.status || 'Activo',
-        updatedAt: serverTimestamp() 
+      // Definimos valores por defecto explícitos para evitar 'undefined'
+      const patientData = {
+        name: formData.name || '',
+        age: formData.age || '',
+        phone: formData.phone || '',
+        email: formData.email || '',
+        diagnosis: formData.diagnosis || '',
+        status: formData.status || 'Activo', // Valor por defecto asegurado
+        updatedAt: serverTimestamp()
       };
-      if (formData.id) await updateDoc(doc(db, 'users', user.uid, 'patients', formData.id), data);
-      else await addDoc(collection(db, 'users', user.uid, 'patients'), { ...data, sessions: [], startDate: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() });
+
+      console.log("Guardando datos:", patientData); // Para depuración
+
+      if (formData.id) {
+        await updateDoc(doc(db, 'users', user.uid, 'patients', formData.id), patientData);
+      } else {
+        await addDoc(collection(db, 'users', user.uid, 'patients'), {
+          ...patientData,
+          sessions: [],
+          startDate: new Date().toISOString().split('T')[0],
+          createdAt: serverTimestamp()
+        });
+      }
       setView('patients'); setFormData({});
     } catch (error) { console.error(error); alert("Error guardando paciente: " + error.message); }
   };
