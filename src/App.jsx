@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
-  Download, Upload, Moon, Sun, Camera, Edit2, Check
+  Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -68,6 +68,38 @@ const Badge = ({ status }) => {
     <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status] || styles.Alta}`}>
       {status}
     </span>
+  );
+};
+
+// --- COMPONENTE MODAL DE CONFIRMACIÓN PERSONALIZADO ---
+const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl max-w-sm w-full border border-slate-100 dark:border-slate-700 transform transition-all scale-100">
+        <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+          <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-full">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
+        </div>
+        <p className="text-slate-600 dark:text-slate-300 mb-6 text-sm leading-relaxed">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onCancel} 
+            className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={onConfirm} 
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-lg shadow-red-200 dark:shadow-none text-sm font-medium transition-colors"
+          >
+            Sí, eliminar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -179,7 +211,6 @@ const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Limite de seguridad: 500KB para evitar saturar Firestore
       if (file.size > 500000) {
         alert("La imagen es demasiado grande. Por favor usa una imagen menor a 500KB.");
         return;
@@ -318,7 +349,7 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
   if (!selectedPatient) return null;
   const current = patients.find(p => p.id === selectedPatient.id) || selectedPatient;
   const [noteInput, setNoteInput] = useState("");
-  const [editingSession, setEditingSession] = useState(null); // { id: 123, text: '...' }
+  const [editingSession, setEditingSession] = useState(null); 
   
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -391,7 +422,6 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
                       <div className="flex justify-between items-start">
                         <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">{s.date}</div>
                         
-                        {/* Botones de acción (visibles al hacer hover) */}
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={() => setEditingSession({id: s.id, text: s.note})}
@@ -494,6 +524,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(!isConfigured);
   const fileInputRef = useRef(null);
+  
+  // --- Estado para el Modal de Confirmación ---
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setConfirmModal({ ...confirmModal, isOpen: false });
 
   // --- Estado para Modo Oscuro ---
   const [darkMode, setDarkMode] = useState(() => {
@@ -512,6 +552,10 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    document.title = "GestiónCitas";
+  }, []);
 
   useEffect(() => {
     if (!isConfigured || !auth) {
@@ -610,7 +654,7 @@ export default function App() {
         email: formData.email || '',
         diagnosis: formData.diagnosis || '',
         status: formData.status || 'Activo',
-        photo: formData.photo || null, // Guardamos la foto (base64) o null si no hay
+        photo: formData.photo || null,
         updatedAt: serverTimestamp()
       };
 
@@ -648,13 +692,20 @@ export default function App() {
     } catch (error) { console.error(error); alert("Error guardando cita: " + error.message); }
   };
 
-  const handleDelete = async (collectionName, id) => {
-    if (window.confirm("¿Estás seguro?")) {
-      try {
-        await deleteDoc(doc(db, 'users', user.uid, collectionName, id));
-        if (collectionName === 'patients' && selectedPatient?.id === id) setView('patients');
-      } catch (error) { console.error(error); alert("Error al eliminar: " + error.message); }
-    }
+  // --- ELIMINAR CON MODAL ---
+  const handleDelete = (collectionName, id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Eliminar Registro',
+      message: `¿Estás seguro de eliminar este elemento de ${collectionName === 'patients' ? 'pacientes' : 'citas'}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', user.uid, collectionName, id));
+          if (collectionName === 'patients' && selectedPatient?.id === id) setView('patients');
+          closeModal();
+        } catch (error) { console.error(error); alert("Error al eliminar: " + error.message); }
+      }
+    });
   };
 
   const handleAddSession = async (patientId, noteText) => {
@@ -666,40 +717,29 @@ export default function App() {
     catch (error) { console.error(error); alert("Error al guardar nota: " + error.message); }
   };
 
-  // --- NUEVAS FUNCIONES PARA EDITAR/ELIMINAR NOTAS ---
-  
   const handleUpdateSession = async (patientId, sessionId, newText) => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient) return;
-    
-    // Crear nuevo array de sesiones con la nota actualizada
-    const updatedSessions = patient.sessions.map(s => 
-      s.id === sessionId ? { ...s, note: newText } : s
-    );
-
-    try {
-      await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions });
-    } catch (error) {
-      console.error(error);
-      alert("Error al actualizar nota: " + error.message);
-    }
+    const updatedSessions = patient.sessions.map(s => s.id === sessionId ? { ...s, note: newText } : s);
+    try { await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions }); }
+    catch (error) { console.error(error); alert("Error al actualizar nota: " + error.message); }
   };
 
-  const handleDeleteSession = async (patientId, sessionId) => {
-    if(!window.confirm("¿Estás seguro de eliminar esta nota? No se puede deshacer.")) return;
-    
-    const patient = patients.find(p => p.id === patientId);
-    if (!patient) return;
-
-    // Filtrar para quitar la sesión
-    const updatedSessions = patient.sessions.filter(s => s.id !== sessionId);
-
-    try {
-      await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions });
-    } catch (error) {
-      console.error(error);
-      alert("Error al eliminar nota: " + error.message);
-    }
+  const handleDeleteSession = (patientId, sessionId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Eliminar Nota',
+      message: '¿Estás seguro de eliminar esta nota del historial? No se puede recuperar.',
+      onConfirm: async () => {
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) return;
+        const updatedSessions = patient.sessions.filter(s => s.id !== sessionId);
+        try {
+          await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions });
+          closeModal();
+        } catch (error) { console.error(error); alert("Error al eliminar nota: " + error.message); }
+      }
+    });
   };
 
   if (configError) return <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4"><Card className="max-w-md w-full p-8 text-center border-l-4 border-l-amber-500"><Activity className="w-12 h-12 text-amber-500 mx-auto mb-4" /><h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Configuración Necesaria</h2><p className="text-slate-600 dark:text-slate-300 mb-6">Configura tus credenciales de Firebase en App.jsx</p></Card></div>;
@@ -718,6 +758,13 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden transition-colors duration-200">
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen} 
+        title={confirmModal.title} 
+        message={confirmModal.message} 
+        onConfirm={confirmModal.onConfirm} 
+        onCancel={closeModal} 
+      />
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xl"><Activity/> GestiónCitas</div>
@@ -761,8 +808,8 @@ export default function App() {
               setFormData={setFormData} 
               handleDelete={handleDelete} 
               handleAddSession={handleAddSession}
-              handleUpdateSession={handleUpdateSession} // Nueva prop
-              handleDeleteSession={handleDeleteSession} // Nueva prop
+              handleUpdateSession={handleUpdateSession} 
+              handleDeleteSession={handleDeleteSession} 
             />}
             {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} />}
             {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} />}
