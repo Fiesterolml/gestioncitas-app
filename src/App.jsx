@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
-  Download, Upload, Moon, Sun, Camera
+  Download, Upload, Moon, Sun, Camera, Edit2, Check
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -314,10 +314,11 @@ const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFor
   );
 };
 
-const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, handleDelete, handleAddSession }) => {
+const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, handleDelete, handleAddSession, handleUpdateSession, handleDeleteSession }) => {
   if (!selectedPatient) return null;
   const current = patients.find(p => p.id === selectedPatient.id) || selectedPatient;
   const [noteInput, setNoteInput] = useState("");
+  const [editingSession, setEditingSession] = useState(null); // { id: 123, text: '...' }
   
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -347,15 +348,70 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
         <div className="lg:col-span-2">
           <Card className="p-6 h-full flex flex-col">
             <h3 className="font-bold mb-4 flex gap-2 text-slate-800 dark:text-white"><FileText className="w-5 h-5"/> Historial Clínico</h3>
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-4">
+            
+            {/* Input Nueva Nota */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6">
               <textarea className="w-full p-3 border rounded-lg bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-sm mb-2" rows="2" placeholder="Nota de evolución..." value={noteInput} onChange={e => setNoteInput(e.target.value)} />
               <button onClick={() => { handleAddSession(current.id, noteInput); setNoteInput(""); }} disabled={!noteInput.trim()} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50">Guardar Nota</button>
             </div>
-            <div className="flex-1 overflow-y-auto max-h-[400px] space-y-4">
+
+            {/* Lista de Notas */}
+            <div className="flex-1 overflow-y-auto max-h-[400px] space-y-6 pr-2">
+              {current.sessions?.length === 0 && <div className="text-center text-slate-400 py-4 italic">Sin notas registradas</div>}
               {current.sessions?.map(s => (
-                <div key={s.id} className="pl-4 border-l-2 border-slate-300 dark:border-slate-600">
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400">{s.date}</div>
-                  <p className="text-sm mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{s.note}</p>
+                <div key={s.id} className="relative pl-6 border-l-2 border-slate-300 dark:border-slate-600 group">
+                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-500"></div>
+                  
+                  {editingSession?.id === s.id ? (
+                    <div className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg p-3 shadow-sm">
+                      <textarea 
+                        className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded bg-transparent text-sm mb-2 dark:text-white"
+                        value={editingSession.text}
+                        onChange={(e) => setEditingSession({...editingSession, text: e.target.value})}
+                        rows="3"
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          onClick={() => setEditingSession(null)} 
+                          className="px-3 py-1 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                        >
+                          Cancelar
+                        </button>
+                        <button 
+                          onClick={() => { handleUpdateSession(current.id, s.id, editingSession.text); setEditingSession(null); }}
+                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3"/> Guardar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">{s.date}</div>
+                        
+                        {/* Botones de acción (visibles al hacer hover) */}
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => setEditingSession({id: s.id, text: s.note})}
+                            className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                            title="Editar nota"
+                          >
+                            <Edit2 className="w-3 h-3"/>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteSession(current.id, s.id)}
+                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                            title="Eliminar nota"
+                          >
+                            <Trash2 className="w-3 h-3"/>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{s.note}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -610,6 +666,42 @@ export default function App() {
     catch (error) { console.error(error); alert("Error al guardar nota: " + error.message); }
   };
 
+  // --- NUEVAS FUNCIONES PARA EDITAR/ELIMINAR NOTAS ---
+  
+  const handleUpdateSession = async (patientId, sessionId, newText) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+    
+    // Crear nuevo array de sesiones con la nota actualizada
+    const updatedSessions = patient.sessions.map(s => 
+      s.id === sessionId ? { ...s, note: newText } : s
+    );
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions });
+    } catch (error) {
+      console.error(error);
+      alert("Error al actualizar nota: " + error.message);
+    }
+  };
+
+  const handleDeleteSession = async (patientId, sessionId) => {
+    if(!window.confirm("¿Estás seguro de eliminar esta nota? No se puede deshacer.")) return;
+    
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+
+    // Filtrar para quitar la sesión
+    const updatedSessions = patient.sessions.filter(s => s.id !== sessionId);
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'patients', patientId), { sessions: updatedSessions });
+    } catch (error) {
+      console.error(error);
+      alert("Error al eliminar nota: " + error.message);
+    }
+  };
+
   if (configError) return <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4"><Card className="max-w-md w-full p-8 text-center border-l-4 border-l-amber-500"><Activity className="w-12 h-12 text-amber-500 mx-auto mb-4" /><h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Configuración Necesaria</h2><p className="text-slate-600 dark:text-slate-300 mb-6">Configura tus credenciales de Firebase en App.jsx</p></Card></div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div></div>;
 
@@ -662,7 +754,16 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             {view === 'dashboard' && <DashboardView user={user} patients={patients} appointments={appointments} setView={setView} />}
             {view === 'patients' && <PatientsListView patients={patients} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setView={setView} setSelectedPatient={setSelectedPatient} />}
-            {view === 'details' && <PatientDetailsView selectedPatient={selectedPatient} patients={patients} setView={setView} setFormData={setFormData} handleDelete={handleDelete} handleAddSession={handleAddSession} />}
+            {view === 'details' && <PatientDetailsView 
+              selectedPatient={selectedPatient} 
+              patients={patients} 
+              setView={setView} 
+              setFormData={setFormData} 
+              handleDelete={handleDelete} 
+              handleAddSession={handleAddSession}
+              handleUpdateSession={handleUpdateSession} // Nueva prop
+              handleDeleteSession={handleDeleteSession} // Nueva prop
+            />}
             {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} />}
             {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} />}
             {(view === 'appt-form') && <ApptFormView setView={setView} handleSaveAppointment={handleSaveAppointment} apptFormData={apptFormData} setApptFormData={setApptFormData} patients={patients} />}
