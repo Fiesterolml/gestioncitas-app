@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
-  Download, Upload, Moon, Sun
+  Download, Upload, Moon, Sun, Camera
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -154,7 +154,14 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
           <Card key={p.id} className="p-5 hover:shadow-md transition-shadow cursor-pointer group">
             <div onClick={() => { setSelectedPatient(p); setView('details'); }}>
               <div className="flex justify-between mb-3">
-                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">{p.name?.charAt(0)}</div>
+                {/* FOTO O INICIAL */}
+                {p.photo ? (
+                  <img src={p.photo} alt={p.name} className="w-12 h-12 rounded-full object-cover border border-slate-100 dark:border-slate-600" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg">
+                    {p.name?.charAt(0)}
+                  </div>
+                )}
                 <Badge status={p.status} />
               </div>
               <h3 className="font-bold text-slate-800 dark:text-white text-lg">{p.name}</h3>
@@ -168,54 +175,100 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
   );
 };
 
-const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) => (
-  <div className="max-w-2xl mx-auto animate-fade-in">
-    <button onClick={() => setView('patients')} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-1 hover:text-slate-800 dark:hover:text-white"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
-    <Card className="p-8">
-      <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">{formData.id ? 'Editar' : 'Nuevo'} Paciente</h2>
-      <form onSubmit={handleSavePatient} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
-          <input required className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) => {
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Limite de seguridad: 500KB para evitar saturar Firestore
+      if (file.size > 500000) {
+        alert("La imagen es demasiado grande. Por favor usa una imagen menor a 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, photo: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto animate-fade-in">
+      <button onClick={() => setView('patients')} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-1 hover:text-slate-800 dark:hover:text-white"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
+      <Card className="p-8">
+        <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">{formData.id ? 'Editar' : 'Nuevo'} Paciente</h2>
+        <form onSubmit={handleSavePatient} className="space-y-4">
+          
+          {/* SECCIÓN DE FOTO */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
+              {formData.photo ? (
+                <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <Camera className="w-8 h-8 text-slate-400" />
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Foto de Perfil</label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleImageChange}
+                className="block w-full text-sm text-slate-500 dark:text-slate-400
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-xs file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100
+                  dark:file:bg-slate-700 dark:file:text-slate-200
+                "
+              />
+              <p className="text-xs text-slate-400 mt-1">Máx. 500KB (Formato JPG, PNG)</p>
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Edad</label>
-            <input type="number" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.age || ''} onChange={e => setFormData({...formData, age: e.target.value})} />
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
+            <input required className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Edad</label>
+              <input type="number" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.age || ''} onChange={e => setFormData({...formData, age: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
+              <input 
+                type="tel" 
+                placeholder="Solo números"
+                className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" 
+                value={formData.phone || ''} 
+                onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})} 
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
-            {/* Validación para solo números */}
-            <input 
-              type="tel" 
-              placeholder="Solo números"
-              className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" 
-              value={formData.phone || ''} 
-              onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})} 
-            />
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+            <input type="email" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
-          <input type="email" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Diagnóstico</label>
-          <input className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.diagnosis || ''} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estado</label>
-          <select className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.status || 'Activo'} onChange={e => setFormData({...formData, status: e.target.value})}>
-            <option value="Activo">Activo</option>
-            <option value="En Pausa">En Pausa</option>
-            <option value="Alta">Alta</option>
-          </select>
-        </div>
-        <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">Guardar Expediente</button>
-      </form>
-    </Card>
-  </div>
-);
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Diagnóstico</label>
+            <input className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.diagnosis || ''} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estado</label>
+            <select className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.status || 'Activo'} onChange={e => setFormData({...formData, status: e.target.value})}>
+              <option value="Activo">Activo</option>
+              <option value="En Pausa">En Pausa</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+          <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">Guardar Expediente</button>
+        </form>
+      </Card>
+    </div>
+  );
+};
 
 const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFormData, patients }) => {
   const activePatients = patients.filter(p => p.status === 'Activo');
@@ -272,7 +325,13 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
           <Card className="p-6 text-center">
-             <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-3">{current.name?.charAt(0)}</div>
+             <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-3 overflow-hidden border border-slate-200 dark:border-slate-600">
+               {current.photo ? (
+                 <img src={current.photo} alt={current.name} className="w-full h-full object-cover" />
+               ) : (
+                 current.name?.charAt(0)
+               )}
+             </div>
              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{current.name}</h2>
              <div className="mt-2"><Badge status={current.status} /></div>
              <div className="space-y-4 text-sm mt-6 text-left text-slate-600 dark:text-slate-300">
@@ -382,14 +441,12 @@ export default function App() {
 
   // --- Estado para Modo Oscuro ---
   const [darkMode, setDarkMode] = useState(() => {
-    // Intentar leer preferencia del localStorage
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
     }
     return false;
   });
 
-  // Efecto para aplicar la clase 'dark' al HTML
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -490,18 +547,16 @@ export default function App() {
     e.preventDefault();
     if (!user) return;
     try {
-      // Definimos valores por defecto explícitos para evitar 'undefined'
       const patientData = {
         name: formData.name || '',
         age: formData.age || '',
         phone: formData.phone || '',
         email: formData.email || '',
         diagnosis: formData.diagnosis || '',
-        status: formData.status || 'Activo', // Valor por defecto asegurado
+        status: formData.status || 'Activo',
+        photo: formData.photo || null, // Guardamos la foto (base64) o null si no hay
         updatedAt: serverTimestamp()
       };
-
-      console.log("Guardando datos:", patientData); // Para depuración
 
       if (formData.id) {
         await updateDoc(doc(db, 'users', user.uid, 'patients', formData.id), patientData);
