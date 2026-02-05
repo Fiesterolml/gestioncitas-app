@@ -3,7 +3,7 @@ import {
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
-  ExternalLink, List, Tag
+  ExternalLink, List, Tag, MessageCircle, Phone
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -106,8 +106,6 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 
 // --- HELPER: GENERAR URL DE GOOGLE CALENDAR ---
 const getGoogleCalendarUrl = (appt) => {
-  // Formato requerido por Google: YYYYMMDDTHHmmssZ
-  // Asumimos que la cita dura 1 hora por defecto
   const startTime = new Date(`${appt.date}T${appt.time}`).toISOString().replace(/-|:|\.\d\d\d/g, "");
   const endTime = new Date(new Date(`${appt.date}T${appt.time}`).getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
   
@@ -115,6 +113,18 @@ const getGoogleCalendarUrl = (appt) => {
   const details = encodeURIComponent(appt.note || "Sesión de terapia");
   
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${startTime}/${endTime}`;
+};
+
+// --- HELPER: GENERAR URL DE WHATSAPP ---
+const getWhatsAppUrl = (appt, patients) => {
+  // Buscar el teléfono del paciente en la lista de pacientes
+  const patient = patients.find(p => p.id === appt.patientId);
+  if (!patient || !patient.phone) return null;
+
+  const phone = patient.phone.replace(/\D/g, ''); // Limpiar el número
+  const message = `Hola ${patient.name}, le recordamos su cita para el día ${new Date(appt.date).toLocaleDateString('es-ES')} a las ${appt.time} hrs. ${appt.note ? `Nota: ${appt.note}` : ''}`;
+  
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 };
 
 // --- VISTAS EXTERNAS ---
@@ -266,10 +276,21 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
                 <Badge status={p.status} />
               </div>
               <h3 className="font-bold text-slate-800 dark:text-white text-lg">{p.name}</h3>
-              <div className="flex items-center gap-2 mt-1 mb-3">
-                <Tag className="w-3 h-3 text-slate-400" />
-                <span className="text-xs text-slate-500 dark:text-slate-400">{p.serviceType || "Sin asignar"}</span>
+              
+              {/* DATOS CLAVE VISIBLES EN TARJETA */}
+              <div className="space-y-1 mt-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-3 h-3 text-slate-400" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{p.serviceType || "Sin asignar"}</span>
+                </div>
+                {p.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3 h-3 text-slate-400" />
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">{p.phone}</span>
+                  </div>
+                )}
               </div>
+
               <div className="text-sm text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-3 flex items-center gap-2"><Activity className="w-4 h-4 text-slate-400" /> {p.sessions?.length || 0} sesiones</div>
             </div>
           </Card>
@@ -541,7 +562,7 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
   );
 };
 
-const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) => {
+const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, patients }) => {
   const groupedAppts = appointments.reduce((acc, appt) => {
     if (!acc[appt.date]) acc[appt.date] = [];
     acc[appt.date].push(appt);
@@ -569,7 +590,10 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) 
                  {date === today && " (Hoy)"}
                </div>
                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                 {groupedAppts[date].map(appt => (
+                 {groupedAppts[date].map(appt => {
+                   const waLink = getWhatsAppUrl(appt, patients);
+                   
+                   return (
                    <div key={appt.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                      <div className="flex gap-4">
                        <span className="font-mono text-slate-500 dark:text-slate-400 font-medium">{appt.time}</span>
@@ -579,6 +603,18 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) 
                        </div>
                      </div>
                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       {/* BOTÓN WHATSAPP */}
+                       {waLink && (
+                         <a 
+                           href={waLink} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 p-2"
+                           title="Enviar recordatorio por WhatsApp"
+                         >
+                           <MessageCircle className="w-4 h-4"/>
+                         </a>
+                       )}
                        {/* BOTÓN GOOGLE CALENDAR */}
                        <a 
                          href={getGoogleCalendarUrl(appt)} 
@@ -592,7 +628,7 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) 
                        <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
                      </div>
                    </div>
-                 ))}
+                 )})}
                </div>
             </div>
           ))}
@@ -950,7 +986,7 @@ export default function App() {
             />}
             {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} services={services} />}
             {view === 'services' && <ServicesManagerView services={services} handleSaveService={handleSaveService} handleDeleteService={handleDeleteService} />}
-            {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} />}
+            {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} patients={patients} />}
             {(view === 'appt-form') && <ApptFormView setView={setView} handleSaveAppointment={handleSaveAppointment} apptFormData={apptFormData} setApptFormData={setApptFormData} patients={patients} />}
           </div>
         </div>
