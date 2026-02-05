@@ -3,7 +3,8 @@ import {
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
-  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, BarChart3, PieChart
+  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, BarChart3, PieChart,
+  Code // Nuevo icono para el desarrollador
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -38,6 +39,10 @@ const firebaseConfig = {
   messagingSenderId: "602853319594",
   appId: "1:602853319594:web:7871121292f9900e2981d3"
 };
+
+// --- CONFIGURACIÓN DEL DESARROLLADOR ---
+// ¡PON AQUÍ TU NÚMERO PARA QUE TE CONTACTEN!
+const DEVELOPER_PHONE = "51930515909"; 
 
 const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
@@ -1255,6 +1260,23 @@ export default function App() {
           <button onClick={() => { setView('stats'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'stats' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><BarChart3 className="w-5 h-5"/> Estadísticas</button>
         </nav>
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          
+          {/* Botón de Contactar al Desarrollador */}
+          <a 
+            href={`https://wa.me/${DEVELOPER_PHONE}?text=${encodeURIComponent("Hola, me interesa solicitar una app personalizada o una mejora para GestiónCitas.")}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium text-sm group"
+          >
+            <Code className="w-5 h-5" />
+            <div className="flex flex-col text-left">
+              <span>¿Quieres una App así?</span>
+              <span className="text-[10px] opacity-70 group-hover:underline">Contactar Desarrollador</span>
+            </div>
+          </a>
+
+          <div className="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
+
           {/* Botón de Modo Oscuro */}
           <button 
             onClick={() => setDarkMode(!darkMode)}
