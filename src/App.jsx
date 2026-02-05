@@ -109,12 +109,24 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
   const activeCount = patients.filter(p => p.status === 'Activo').length;
   const today = new Date().toISOString().split('T')[0];
   const upcomingAppts = appointments.filter(a => a.date >= today).slice(0, 3);
+  
+  // Formatear último acceso
+  const lastSignInDate = user.metadata.lastSignInTime 
+    ? new Date(user.metadata.lastSignInTime).toLocaleString('es-ES', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+      }) 
+    : 'Primer acceso';
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Hola, {user.displayName}</h2>
-        <span className="text-sm text-slate-500 dark:text-slate-400">{new Date().toLocaleDateString()}</span>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Hola, {user.displayName}</h2>
+          <div className="flex flex-col text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <span>{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Último acceso: {lastSignInDate}</span>
+          </div>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
