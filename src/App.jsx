@@ -3,7 +3,7 @@ import {
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
-  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, CreditCard
+  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -235,7 +235,6 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
 };
 
 const FinanceDashboardView = ({ appointments }) => {
-  // Cálculos financieros
   const totalRevenue = appointments
     .filter(a => a.paymentStatus === 'Pagado')
     .reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
@@ -244,7 +243,6 @@ const FinanceDashboardView = ({ appointments }) => {
     .filter(a => a.paymentStatus === 'Pendiente')
     .reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
 
-  // Ordenar transacciones recientes
   const recentTransactions = [...appointments]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 10);
@@ -539,8 +537,10 @@ const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFor
     <div className="max-w-xl mx-auto animate-fade-in">
        <button onClick={() => setView('calendar')} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-1 hover:text-slate-800 dark:hover:text-white"><ChevronRight className="w-4 h-4 rotate-180"/> Cancelar</button>
        <Card className="p-8">
-         <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Agendar Cita</h2>
-         {activePatients.length === 0 ? (
+         <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">
+           {apptFormData.id ? 'Editar Cita' : 'Agendar Cita'}
+         </h2>
+         {activePatients.length === 0 && !apptFormData.id ? (
            <div className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg mb-4 text-sm">
              ⚠️ No tienes pacientes "Activos" para agendar. Ve a la sección de Pacientes y crea uno nuevo o cambia el estado de uno existente.
            </div>
@@ -550,7 +550,8 @@ const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFor
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Paciente</label>
               <select required className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={apptFormData.patientId || ''} onChange={e => setApptFormData({...apptFormData, patientId: e.target.value})}>
                 <option value="">Selecciona un paciente...</option>
-                {activePatients.map(p => (
+                {/* Mostrar todos los pacientes si estamos editando, o solo activos si es nueva */}
+                {(apptFormData.id ? patients : activePatients).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -595,7 +596,9 @@ const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFor
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nota (Opcional)</label>
               <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
             </div>
-            <button type="submit" disabled={activePatients.length === 0} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4 disabled:opacity-50 disabled:cursor-not-allowed">Confirmar Cita</button>
+            <button type="submit" disabled={!apptFormData.id && activePatients.length === 0} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 mt-4 disabled:opacity-50 disabled:cursor-not-allowed">
+              {apptFormData.id ? 'Guardar Cambios' : 'Confirmar Cita'}
+            </button>
          </form>
        </Card>
     </div>
@@ -710,7 +713,7 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
   );
 };
 
-const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, patients }) => {
+const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, patients, onEdit }) => {
   const groupedAppts = appointments.reduce((acc, appt) => {
     if (!acc[appt.date]) acc[appt.date] = [];
     acc[appt.date].push(appt);
@@ -779,6 +782,14 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, pa
                          title="Agregar a Google Calendar"
                        >
                          <Calendar className="w-4 h-4"/>
+                       </button>
+                       {/* BOTÓN EDITAR */}
+                       <button 
+                         onClick={() => onEdit(appt)} 
+                         className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
+                         title="Editar cita"
+                       >
+                         <Edit2 className="w-4 h-4"/>
                        </button>
                        <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
                      </div>
@@ -1021,6 +1032,11 @@ export default function App() {
     } catch (error) { console.error(error); alert("Error guardando cita: " + error.message); }
   };
 
+  const handleEditAppointment = (appt) => {
+    setApptFormData(appt);
+    setView('appt-form');
+  };
+
   // --- ELIMINAR CON MODAL ---
   const handleDelete = (collectionName, id) => {
     setConfirmModal({
@@ -1145,7 +1161,7 @@ export default function App() {
             />}
             {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} services={services} />}
             {view === 'services' && <ServicesManagerView services={services} handleSaveService={handleSaveService} handleDeleteService={handleDeleteService} />}
-            {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} patients={patients} />}
+            {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} patients={patients} onEdit={handleEditAppointment} />}
             {(view === 'appt-form') && <ApptFormView setView={setView} handleSaveAppointment={handleSaveAppointment} apptFormData={apptFormData} setApptFormData={setApptFormData} patients={patients} />}
           </div>
         </div>
