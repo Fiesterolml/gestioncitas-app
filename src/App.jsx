@@ -3,7 +3,7 @@ import {
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
-  ExternalLink, List, Tag, MessageCircle, Phone
+  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, CreditCard
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -64,6 +64,9 @@ const Badge = ({ status }) => {
     Activo: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     "En Pausa": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     Alta: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+    // Estados de Pago
+    Pagado: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    Pendiente: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   };
   return (
     <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status] || styles.Alta}`}>
@@ -106,11 +109,9 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
 
 // --- HELPER: GENERAR ARCHIVO .ICS (CALENDARIO NATIVO) ---
 const downloadIcsFile = (appt) => {
-  // Crear fechas
   const start = new Date(`${appt.date}T${appt.time}`);
-  const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hora duración
+  const end = new Date(start.getTime() + 60 * 60 * 1000); 
 
-  // Formatear a cadena ICS (YYYYMMDDTHHmmss)
   const formatLocal = (date) => {
     const pad = (n) => n < 10 ? '0' + n : n;
     return date.getFullYear() +
@@ -147,14 +148,11 @@ const downloadIcsFile = (appt) => {
 
 // --- HELPER: GENERAR URL DE WHATSAPP ---
 const getWhatsAppUrl = (appt, patients) => {
-  // Buscar el teléfono del paciente en la lista de pacientes
   const patient = patients.find(p => p.id === appt.patientId);
   if (!patient || !patient.phone) return null;
 
-  let phone = patient.phone.replace(/\D/g, ''); // Limpiar el número
+  let phone = patient.phone.replace(/\D/g, ''); 
   
-  // FIX: Agregar código de país (Perú 51) si el número tiene 9 dígitos (celular)
-  // Esto evita que WhatsApp confunda 9XXXX con el código de país +93 (Afganistán)
   if (phone.length === 9) {
     phone = '51' + phone;
   }
@@ -230,6 +228,93 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FinanceDashboardView = ({ appointments }) => {
+  // Cálculos financieros
+  const totalRevenue = appointments
+    .filter(a => a.paymentStatus === 'Pagado')
+    .reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
+
+  const pendingRevenue = appointments
+    .filter(a => a.paymentStatus === 'Pendiente')
+    .reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
+
+  // Ordenar transacciones recientes
+  const recentTransactions = [...appointments]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Panel Financiero</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="p-6 border-l-4 border-l-green-500 dark:border-l-green-500">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Ingresos Totales (Pagados)</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-white mt-1">S/ {totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-full text-green-600 dark:text-green-400">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-6 border-l-4 border-l-orange-500 dark:border-l-orange-500">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Pendiente de Cobro</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-white mt-1">S/ {pendingRevenue.toFixed(2)}</p>
+            </div>
+            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-full text-orange-600 dark:text-orange-400">
+              <DollarSign className="w-6 h-6" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">Últimas Transacciones</h3>
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Fecha</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Paciente</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Monto</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {recentTransactions.map(appt => (
+                  <tr key={appt.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                      {new Date(appt.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-800 dark:text-white">
+                      {appt.patientName}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-300">
+                      S/ {(Number(appt.cost) || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge status={appt.paymentStatus || 'Pendiente'} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {recentTransactions.length === 0 && (
+              <div className="p-6 text-center text-slate-400 text-sm">No hay transacciones registradas.</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -480,6 +565,32 @@ const ApptFormView = ({ setView, handleSaveAppointment, apptFormData, setApptFor
                 <input required type="time" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={apptFormData.time || ''} onChange={e => setApptFormData({...apptFormData, time: e.target.value})} />
               </div>
             </div>
+            
+            {/* SECCIÓN FINANCIERA */}
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Costo de Sesión (S/)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" 
+                  value={apptFormData.cost || ''} 
+                  onChange={e => setApptFormData({...apptFormData, cost: e.target.value})} 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estado del Pago</label>
+                <select 
+                  className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" 
+                  value={apptFormData.paymentStatus || 'Pendiente'} 
+                  onChange={e => setApptFormData({...apptFormData, paymentStatus: e.target.value})}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Pagado">Pagado</option>
+                </select>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nota (Opcional)</label>
               <input type="text" placeholder="Ej: Traer resultados, sesión online..." className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={apptFormData.note || ''} onChange={e => setApptFormData({...apptFormData, note: e.target.value})} />
@@ -629,13 +740,22 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, pa
                <div className="divide-y divide-slate-100 dark:divide-slate-700">
                  {groupedAppts[date].map(appt => {
                    const waLink = getWhatsAppUrl(appt, patients);
+                   const isPaid = appt.paymentStatus === 'Pagado';
                    
                    return (
                    <div key={appt.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                      <div className="flex gap-4">
                        <span className="font-mono text-slate-500 dark:text-slate-400 font-medium">{appt.time}</span>
                        <div>
-                         <p className="font-bold text-slate-800 dark:text-white">{appt.patientName}</p>
+                         <div className="flex items-center gap-2">
+                           <p className="font-bold text-slate-800 dark:text-white">{appt.patientName}</p>
+                           {/* INDICADOR DE PAGO */}
+                           {appt.cost > 0 && (
+                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isPaid ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'}`}>
+                               {isPaid ? 'S/' : 'S/⏳'}
+                             </span>
+                           )}
+                         </div>
                          {appt.note && <p className="text-sm text-slate-500 dark:text-slate-400">{appt.note}</p>}
                        </div>
                      </div>
@@ -891,6 +1011,8 @@ export default function App() {
         date: apptFormData.date, 
         time: apptFormData.time, 
         note: apptFormData.note || '', 
+        cost: Number(apptFormData.cost) || 0,
+        paymentStatus: apptFormData.paymentStatus || 'Pendiente',
         updatedAt: serverTimestamp() 
       };
       if (apptFormData.id) await updateDoc(doc(db, 'users', user.uid, 'appointments', apptFormData.id), data);
@@ -982,6 +1104,7 @@ export default function App() {
           <button onClick={() => { setView('calendar'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'calendar' || view === 'appt-form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Calendar className="w-5 h-5"/> Agenda</button>
           <button onClick={() => { setView('patients'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'patients' || view === 'details' || view === 'form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><FileText className="w-5 h-5"/> Pacientes</button>
           <button onClick={() => { setView('services'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'services' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><List className="w-5 h-5"/> Servicios</button>
+          <button onClick={() => { setView('finance'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'finance' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><DollarSign className="w-5 h-5"/> Finanzas</button>
         </nav>
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
           {/* Botón de Modo Oscuro */}
@@ -1008,6 +1131,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
             {view === 'dashboard' && <DashboardView user={user} patients={patients} appointments={appointments} setView={setView} />}
+            {view === 'finance' && <FinanceDashboardView appointments={appointments} />}
             {view === 'patients' && <PatientsListView patients={patients} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setView={setView} setSelectedPatient={setSelectedPatient} />}
             {view === 'details' && <PatientDetailsView 
               selectedPatient={selectedPatient} 
