@@ -104,15 +104,45 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
   );
 };
 
-// --- HELPER: GENERAR URL DE GOOGLE CALENDAR ---
-const getGoogleCalendarUrl = (appt) => {
-  const startTime = new Date(`${appt.date}T${appt.time}`).toISOString().replace(/-|:|\.\d\d\d/g, "");
-  const endTime = new Date(new Date(`${appt.date}T${appt.time}`).getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
-  
-  const title = encodeURIComponent(`Cita con ${appt.patientName}`);
-  const details = encodeURIComponent(appt.note || "Sesión de terapia");
-  
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${startTime}/${endTime}`;
+// --- HELPER: GENERAR ARCHIVO .ICS (CALENDARIO NATIVO) ---
+const downloadIcsFile = (appt) => {
+  // Crear fechas
+  const start = new Date(`${appt.date}T${appt.time}`);
+  const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hora duración
+
+  // Formatear a cadena ICS (YYYYMMDDTHHmmss)
+  const formatLocal = (date) => {
+    const pad = (n) => n < 10 ? '0' + n : n;
+    return date.getFullYear() +
+      pad(date.getMonth() + 1) +
+      pad(date.getDate()) + 'T' +
+      pad(date.getHours()) +
+      pad(date.getMinutes()) +
+      pad(date.getSeconds());
+  };
+
+  const icsBody = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//GestionCitas//App',
+    'BEGIN:VEVENT',
+    `UID:${Date.now()}@gestioncitas`,
+    `DTSTAMP:${formatLocal(new Date())}`,
+    `DTSTART:${formatLocal(start)}`,
+    `DTEND:${formatLocal(end)}`,
+    `SUMMARY:Cita con ${appt.patientName}`,
+    `DESCRIPTION:${appt.note || ''}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([icsBody], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `cita_${appt.patientName.replace(/\s+/g, '_')}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 // --- HELPER: GENERAR URL DE WHATSAPP ---
@@ -623,15 +653,13 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, pa
                          </a>
                        )}
                        {/* BOTÓN GOOGLE CALENDAR */}
-                       <a 
-                         href={getGoogleCalendarUrl(appt)} 
-                         target="_blank" 
-                         rel="noopener noreferrer"
+                       <button
+                         onClick={() => downloadIcsFile(appt)} 
                          className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
                          title="Agregar a Google Calendar"
                        >
-                         <ExternalLink className="w-4 h-4"/>
-                       </a>
+                         <Calendar className="w-4 h-4"/>
+                       </button>
                        <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
                      </div>
                    </div>
