@@ -121,7 +121,14 @@ const getWhatsAppUrl = (appt, patients) => {
   const patient = patients.find(p => p.id === appt.patientId);
   if (!patient || !patient.phone) return null;
 
-  const phone = patient.phone.replace(/\D/g, ''); // Limpiar el número
+  let phone = patient.phone.replace(/\D/g, ''); // Limpiar el número
+  
+  // FIX: Agregar código de país (Perú 51) si el número tiene 9 dígitos (celular)
+  // Esto evita que WhatsApp confunda 9XXXX con el código de país +93 (Afganistán)
+  if (phone.length === 9) {
+    phone = '51' + phone;
+  }
+
   const message = `Hola ${patient.name}, le recordamos su cita para el día ${new Date(appt.date).toLocaleDateString('es-ES')} a las ${appt.time} hrs. ${appt.note ? `Nota: ${appt.note}` : ''}`;
   
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
