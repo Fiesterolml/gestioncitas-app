@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
-  Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle
+  Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
+  ExternalLink, List, Tag
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -103,6 +104,19 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
   );
 };
 
+// --- HELPER: GENERAR URL DE GOOGLE CALENDAR ---
+const getGoogleCalendarUrl = (appt) => {
+  // Formato requerido por Google: YYYYMMDDTHHmmssZ
+  // Asumimos que la cita dura 1 hora por defecto
+  const startTime = new Date(`${appt.date}T${appt.time}`).toISOString().replace(/-|:|\.\d\d\d/g, "");
+  const endTime = new Date(new Date(`${appt.date}T${appt.time}`).getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
+  
+  const title = encodeURIComponent(`Cita con ${appt.patientName}`);
+  const details = encodeURIComponent(appt.note || "Sesión de terapia");
+  
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${startTime}/${endTime}`;
+};
+
 // --- VISTAS EXTERNAS ---
 
 const DashboardView = ({ user, patients, appointments, setView }) => {
@@ -110,7 +124,6 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
   const today = new Date().toISOString().split('T')[0];
   const upcomingAppts = appointments.filter(a => a.date >= today).slice(0, 3);
   
-  // Formatear último acceso
   const lastSignInDate = user.metadata.lastSignInTime 
     ? new Date(user.metadata.lastSignInTime).toLocaleString('es-ES', { 
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' 
@@ -176,6 +189,50 @@ const DashboardView = ({ user, patients, appointments, setView }) => {
   );
 };
 
+const ServicesManagerView = ({ services, handleSaveService, handleDeleteService }) => {
+  const [newService, setNewService] = useState("");
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Catálogo de Servicios</h2>
+      
+      <Card className="p-6">
+        <div className="flex gap-4 mb-6">
+          <input 
+            type="text" 
+            placeholder="Ej: Terapia de Pareja, Terapia Conductual..." 
+            className="flex-1 p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+            value={newService}
+            onChange={(e) => setNewService(e.target.value)}
+          />
+          <button 
+            onClick={() => { handleSaveService(newService); setNewService(""); }}
+            disabled={!newService.trim()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            Agregar
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {services.length === 0 && <p className="text-slate-400 text-center py-4">No hay servicios registrados.</p>}
+          {services.map(service => (
+            <div key={service.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700">
+              <span className="font-medium text-slate-700 dark:text-slate-300">{service.name}</span>
+              <button 
+                onClick={() => handleDeleteService(service.id)}
+                className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors"
+              >
+                <Trash2 className="w-4 h-4"/>
+              </button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, setView, setSelectedPatient }) => {
   return (
     <div className="space-y-6 animate-fade-in">
@@ -209,7 +266,10 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
                 <Badge status={p.status} />
               </div>
               <h3 className="font-bold text-slate-800 dark:text-white text-lg">{p.name}</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{p.diagnosis}</p>
+              <div className="flex items-center gap-2 mt-1 mb-3">
+                <Tag className="w-3 h-3 text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">{p.serviceType || "Sin asignar"}</span>
+              </div>
               <div className="text-sm text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-3 flex items-center gap-2"><Activity className="w-4 h-4 text-slate-400" /> {p.sessions?.length || 0} sesiones</div>
             </div>
           </Card>
@@ -219,7 +279,7 @@ const PatientsListView = ({ patients, searchTerm, setSearchTerm, setFormData, se
   );
 };
 
-const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) => {
+const PatientFormView = ({ formData, setFormData, handleSavePatient, setView, services }) => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -294,8 +354,24 @@ const PatientFormView = ({ formData, setFormData, handleSavePatient, setView }) 
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
             <input type="email" className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
           </div>
+          
+          {/* NUEVO SELECTOR DE TIPO DE SERVICIO */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Diagnóstico</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Servicio / Terapia</label>
+            <select 
+              className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+              value={formData.serviceType || ''}
+              onChange={e => setFormData({...formData, serviceType: e.target.value})}
+            >
+              <option value="">-- Seleccionar Servicio --</option>
+              {services.map(s => (
+                <option key={s.id} value={s.name}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Diagnóstico (Detalle)</label>
             <input className="w-full p-3 border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" value={formData.diagnosis || ''} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
           </div>
           <div>
@@ -379,6 +455,7 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{current.name}</h2>
              <div className="mt-2"><Badge status={current.status} /></div>
              <div className="space-y-4 text-sm mt-6 text-left text-slate-600 dark:text-slate-300">
+               <div><label className="text-xs font-bold text-slate-400 uppercase">Servicio / Terapia</label><p className="font-medium text-slate-800 dark:text-white">{current.serviceType || "No asignado"}</p></div>
                <div><label className="text-xs font-bold text-slate-400 uppercase">Diagnóstico</label><p className="font-medium text-slate-800 dark:text-white">{current.diagnosis}</p></div>
                <div><label className="text-xs font-bold text-slate-400 uppercase">Contacto</label><p>{current.email}</p><p>{current.phone}</p></div>
              </div>
@@ -501,7 +578,17 @@ const CalendarView = ({ appointments, setApptFormData, setView, handleDelete }) 
                          {appt.note && <p className="text-sm text-slate-500 dark:text-slate-400">{appt.note}</p>}
                        </div>
                      </div>
-                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       {/* BOTÓN GOOGLE CALENDAR */}
+                       <a 
+                         href={getGoogleCalendarUrl(appt)} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
+                         title="Agregar a Google Calendar"
+                       >
+                         <ExternalLink className="w-4 h-4"/>
+                       </a>
                        <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
                      </div>
                    </div>
@@ -528,6 +615,7 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [services, setServices] = useState([]); // NUEVO ESTADO PARA SERVICIOS
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -594,10 +682,17 @@ export default function App() {
           setLoading(false);
         });
 
-        return () => { unsubPatients(); unsubAppts(); };
+        // NUEVO: Suscripción a Servicios
+        const qServices = query(collection(db, 'users', currentUser.uid, 'services'), orderBy('createdAt', 'asc'));
+        const unsubServices = onSnapshot(qServices, (snapshot) => {
+          setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+
+        return () => { unsubPatients(); unsubAppts(); unsubServices(); };
       } else {
         setPatients([]);
         setAppointments([]);
+        setServices([]);
         setLoading(false);
       }
     });
@@ -611,7 +706,7 @@ export default function App() {
 
   const handleExportData = () => {
     if (!patients.length && !appointments.length) { alert("No hay datos para exportar."); return; }
-    const dataToExport = { exportedAt: new Date().toISOString(), user: user.email, patients, appointments };
+    const dataToExport = { exportedAt: new Date().toISOString(), user: user.email, patients, appointments, services };
     const dataStr = JSON.stringify(dataToExport, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -635,16 +730,25 @@ export default function App() {
         if (!json.patients && !json.appointments) { alert("El archivo no es válido."); return; }
         if (window.confirm(`Importar ${json.patients?.length || 0} pacientes y ${json.appointments?.length || 0} citas?`)) {
           setLoading(true);
+          // Importar pacientes
           if (json.patients) {
             for (const p of json.patients) {
               const { id, ...data } = p;
               await setDoc(doc(db, 'users', user.uid, 'patients', id), { ...data, updatedAt: serverTimestamp(), createdAt: serverTimestamp() });
             }
           }
+          // Importar citas
           if (json.appointments) {
             for (const a of json.appointments) {
               const { id, ...data } = a;
               await setDoc(doc(db, 'users', user.uid, 'appointments', id), { ...data, updatedAt: serverTimestamp(), createdAt: serverTimestamp() });
+            }
+          }
+          // Importar servicios (NUEVO)
+          if (json.services) {
+            for (const s of json.services) {
+              const { id, ...data } = s;
+              await setDoc(doc(db, 'users', user.uid, 'services', id), { ...data, createdAt: serverTimestamp() });
             }
           }
           alert("Importación completada.");
@@ -653,6 +757,25 @@ export default function App() {
       finally { setLoading(false); if(fileInputRef.current) fileInputRef.current.value = ""; }
     };
     reader.readAsText(file);
+  };
+
+  // --- LOGICA DE SERVICIOS ---
+  const handleSaveService = async (serviceName) => {
+    if (!serviceName.trim()) return;
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'services'), {
+        name: serviceName.trim(),
+        createdAt: serverTimestamp()
+      });
+    } catch (error) { console.error(error); alert("Error guardando servicio: " + error.message); }
+  };
+
+  const handleDeleteService = async (id) => {
+    if(window.confirm("¿Eliminar este servicio?")) {
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'services', id));
+      } catch (error) { console.error(error); alert("Error eliminando servicio: " + error.message); }
+    }
   };
 
   const handleSavePatient = async (e) => {
@@ -666,6 +789,7 @@ export default function App() {
         email: formData.email || '',
         diagnosis: formData.diagnosis || '',
         status: formData.status || 'Activo',
+        serviceType: formData.serviceType || '', // NUEVO CAMPO
         photo: formData.photo || null,
         updatedAt: serverTimestamp()
       };
@@ -786,6 +910,7 @@ export default function App() {
           <button onClick={() => { setView('dashboard'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'dashboard' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Users className="w-5 h-5"/> Panel</button>
           <button onClick={() => { setView('calendar'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'calendar' || view === 'appt-form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Calendar className="w-5 h-5"/> Agenda</button>
           <button onClick={() => { setView('patients'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'patients' || view === 'details' || view === 'form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><FileText className="w-5 h-5"/> Pacientes</button>
+          <button onClick={() => { setView('services'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'services' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><List className="w-5 h-5"/> Servicios</button>
         </nav>
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
           {/* Botón de Modo Oscuro */}
@@ -823,7 +948,8 @@ export default function App() {
               handleUpdateSession={handleUpdateSession} 
               handleDeleteSession={handleDeleteSession} 
             />}
-            {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} />}
+            {view === 'form' && <PatientFormView formData={formData} setFormData={setFormData} handleSavePatient={handleSavePatient} setView={setView} services={services} />}
+            {view === 'services' && <ServicesManagerView services={services} handleSaveService={handleSaveService} handleDeleteService={handleDeleteService} />}
             {(view === 'calendar') && <CalendarView appointments={appointments} setApptFormData={setApptFormData} setView={setView} handleDelete={handleDelete} />}
             {(view === 'appt-form') && <ApptFormView setView={setView} handleSaveAppointment={handleSaveAppointment} apptFormData={apptFormData} setApptFormData={setApptFormData} patients={patients} />}
           </div>
