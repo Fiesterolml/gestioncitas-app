@@ -3,7 +3,7 @@ import {
   Users, Calendar, FileText, Search, ChevronRight, UserPlus, 
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
-  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp
+  ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, BarChart3, PieChart
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -314,6 +314,137 @@ const FinanceDashboardView = ({ appointments }) => {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const StatsView = ({ appointments, patients, services }) => {
+  // 1. Datos para Citas por Mes (Últimos 6 meses)
+  const getLast6MonthsData = () => {
+    const months = [];
+    const data = [];
+    const today = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = d.toISOString().slice(0, 7); // YYYY-MM
+      const monthName = d.toLocaleString('es-ES', { month: 'short' });
+      
+      const count = appointments.filter(a => a.date.startsWith(monthKey)).length;
+      months.push(monthName);
+      data.push(count);
+    }
+    return { months, data };
+  };
+
+  const { months, data: monthlyData } = getLast6MonthsData();
+  const maxMonthly = Math.max(...monthlyData, 1);
+
+  // 2. Datos para Servicios Top
+  const getServiceStats = () => {
+    const stats = {};
+    // Inicializar con servicios existentes
+    services.forEach(s => stats[s.name] = 0);
+    // Contar pacientes
+    patients.forEach(p => {
+      if (p.serviceType) {
+        stats[p.serviceType] = (stats[p.serviceType] || 0) + 1;
+      }
+    });
+    // Convertir a array y ordenar
+    return Object.entries(stats)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
+  };
+
+  const serviceStats = getServiceStats();
+  const maxService = Math.max(...serviceStats.map(s => s.count), 1);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Estadísticas</h2>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* GRÁFICA DE BARRAS: CITAS POR MES */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-6 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-500" />
+            Citas por Mes
+          </h3>
+          <div className="h-64 flex items-end justify-between gap-2">
+            {monthlyData.map((count, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+                <div className="w-full relative flex items-end justify-center">
+                  <div 
+                    className="w-full max-w-[40px] bg-blue-500 dark:bg-blue-600 rounded-t-lg transition-all duration-500 group-hover:bg-blue-400 relative group"
+                    style={{ height: `${(count / maxMonthly) * 200}px`, minHeight: '4px' }}
+                  >
+                     {/* Tooltip simple */}
+                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                       {count} citas
+                     </div>
+                  </div>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">{months[i]}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* GRÁFICA DE BARRAS HORIZONTALES: SERVICIOS */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-6 flex items-center gap-2">
+            <PieChart className="w-5 h-5 text-purple-500" />
+            Servicios Más Solicitados
+          </h3>
+          <div className="space-y-4">
+            {serviceStats.length === 0 && <p className="text-slate-400 text-sm italic">No hay datos de servicios aún.</p>}
+            {serviceStats.map((stat, i) => (
+              <div key={i}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{stat.name}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{stat.count} pac.</span>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                  <div 
+                    className="bg-purple-500 dark:bg-purple-600 h-2.5 rounded-full transition-all duration-1000" 
+                    style={{ width: `${(stat.count / maxService) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+      
+      {/* Resumen Rápido */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+         <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+           <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase mb-1">Activos</p>
+           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+             {patients.filter(p => p.status === 'Activo').length}
+           </p>
+         </div>
+         <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30">
+           <p className="text-amber-600 dark:text-amber-400 text-xs font-bold uppercase mb-1">En Pausa</p>
+           <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+             {patients.filter(p => p.status === 'En Pausa').length}
+           </p>
+         </div>
+         <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-1">De Alta</p>
+           <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">
+             {patients.filter(p => p.status === 'Alta').length}
+           </p>
+         </div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+           <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase mb-1">Total Citas</p>
+           <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+             {appointments.length}
+           </p>
+         </div>
       </div>
     </div>
   );
@@ -1121,6 +1252,7 @@ export default function App() {
           <button onClick={() => { setView('patients'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'patients' || view === 'details' || view === 'form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><FileText className="w-5 h-5"/> Pacientes</button>
           <button onClick={() => { setView('services'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'services' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><List className="w-5 h-5"/> Servicios</button>
           <button onClick={() => { setView('finance'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'finance' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><DollarSign className="w-5 h-5"/> Finanzas</button>
+          <button onClick={() => { setView('stats'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'stats' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><BarChart3 className="w-5 h-5"/> Estadísticas</button>
         </nav>
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
           {/* Botón de Modo Oscuro */}
@@ -1148,6 +1280,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             {view === 'dashboard' && <DashboardView user={user} patients={patients} appointments={appointments} setView={setView} />}
             {view === 'finance' && <FinanceDashboardView appointments={appointments} />}
+            {view === 'stats' && <StatsView appointments={appointments} patients={patients} services={services} />}
             {view === 'patients' && <PatientsListView patients={patients} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setView={setView} setSelectedPatient={setSelectedPatient} />}
             {view === 'details' && <PatientDetailsView 
               selectedPatient={selectedPatient} 
