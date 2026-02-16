@@ -4,7 +4,7 @@ import {
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
   ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, BarChart3, PieChart,
-  Code, Linkedin 
+  Code, Linkedin, Settings, ChevronDown // Nuevos iconos
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -30,8 +30,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 
-// --- CONFIGURACIÓN DE FIREBASE ---
-// Usamos las claves directas para asegurar que funcione en el previsualizador
+// --- CONFIGURACIÓN DE FIREBASE (Tus credenciales) ---
 const firebaseConfig = {
   apiKey: "AIzaSyCWMcQxF8ERx0ClExjFo6czkJjfQYx-GcQ",
   authDomain: "gestioncitas-app.firebaseapp.com",
@@ -45,7 +44,6 @@ const firebaseConfig = {
 const DEVELOPER_PHONE = "51930515909"; 
 const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/pedro-espinoza/";
 
-// Validación simple
 const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
 let auth, db;
@@ -850,6 +848,103 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
   );
 };
 
+const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, patients, onEdit }) => {
+  const groupedAppts = appointments.reduce((acc, appt) => {
+    if (!acc[appt.date]) acc[appt.date] = [];
+    acc[appt.date].push(appt);
+    return acc;
+  }, {});
+  const sortedDates = Object.keys(groupedAppts).sort();
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Agenda de Citas</h2>
+        <button onClick={() => { setApptFormData({ date: today }); setView('appt-form'); }} className="btn-primary flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <PlusCircle className="w-4 h-4" /> Nueva Cita
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {sortedDates.length === 0 && <div className="text-center py-12 text-slate-400">No hay citas programadas.</div>}
+          {sortedDates.map(date => (
+            <div key={date} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+               <div className={`px-4 py-2 text-sm font-bold border-b border-slate-100 dark:border-slate-700 ${date === today ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300'}`}>
+                 {new Date(date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                 {date === today && " (Hoy)"}
+               </div>
+               <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                 {groupedAppts[date].map(appt => {
+                   const waLink = getWhatsAppUrl(appt, patients);
+                   const isPaid = appt.paymentStatus === 'Pagado';
+                   
+                   return (
+                   <div key={appt.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                     <div className="flex gap-4">
+                       <span className="font-mono text-slate-500 dark:text-slate-400 font-medium">{appt.time}</span>
+                       <div>
+                         <div className="flex items-center gap-2">
+                           <p className="font-bold text-slate-800 dark:text-white">{appt.patientName}</p>
+                           {/* INDICADOR DE PAGO */}
+                           {appt.cost > 0 && (
+                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isPaid ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'}`}>
+                               {isPaid ? 'S/' : 'S/⏳'}
+                             </span>
+                           )}
+                         </div>
+                         {appt.note && <p className="text-sm text-slate-500 dark:text-slate-400">{appt.note}</p>}
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       {/* BOTÓN WHATSAPP */}
+                       {waLink && (
+                         <a 
+                           href={waLink} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 p-2"
+                           title="Enviar recordatorio por WhatsApp"
+                         >
+                           <MessageCircle className="w-4 h-4"/>
+                         </a>
+                       )}
+                       {/* BOTÓN GOOGLE CALENDAR */}
+                       <button
+                         onClick={() => downloadIcsFile(appt)} 
+                         className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
+                         title="Agregar a Google Calendar"
+                       >
+                         <Calendar className="w-4 h-4"/>
+                       </button>
+                       {/* BOTÓN EDITAR */}
+                       <button 
+                         onClick={() => onEdit(appt)} 
+                         className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
+                         title="Editar cita"
+                       >
+                         <Edit2 className="w-4 h-4"/>
+                       </button>
+                       <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
+                     </div>
+                   </div>
+                 )})}
+               </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden lg:block">
+          <Card className="p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30 sticky top-4">
+            <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-2">Resumen</h3>
+            <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">Tienes {appointments.length} citas en total.</p>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Componente Principal APP ---
 
 export default function App() {
@@ -867,6 +962,9 @@ export default function App() {
   const [configError, setConfigError] = useState(!isConfigured);
   const fileInputRef = useRef(null);
   
+  // --- Estado para el menú de configuración (desplegable) ---
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   // --- Estado para el Modal de Confirmación ---
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -1163,6 +1261,52 @@ export default function App() {
           <button onClick={() => { setView('services'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'services' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><List className="w-5 h-5"/> Servicios</button>
           <button onClick={() => { setView('finance'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'finance' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><DollarSign className="w-5 h-5"/> Finanzas</button>
           <button onClick={() => { setView('stats'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'stats' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><BarChart3 className="w-5 h-5"/> Estadísticas</button>
+          
+          {/* MENU DESPLEGABLE DE CONFIGURACIÓN */}
+          <div className="pt-2">
+            <button 
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Settings className="w-5 h-5"/> 
+                <span>Configuración</span>
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isSettingsOpen && (
+              <div className="ml-4 pl-4 border-l border-slate-100 dark:border-slate-800 mt-1 space-y-1 animate-fade-in">
+                {/* Toggle Modo Oscuro */}
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                  <span>{darkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
+                </button>
+
+                {/* Importar / Exportar (Inputs ocultos) */}
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
+                
+                <button 
+                  onClick={handleExportData}
+                  className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Download className="w-4 h-4"/> 
+                  <span>Exportar Datos</span>
+                </button>
+                
+                <button 
+                  onClick={handleImportClick}
+                  className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Upload className="w-4 h-4"/> 
+                  <span>Importar Datos</span>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
         
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2 flex-shrink-0">
@@ -1196,19 +1340,7 @@ export default function App() {
           </a>
 
           <div className="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
-
-          {/* Botón de Modo Oscuro */}
-          <button 
-            onClick={() => setDarkMode(!darkMode)}
-            className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 w-full p-3 rounded-xl transition-colors font-medium text-sm"
-          >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
-          </button>
-
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
-          <button onClick={handleExportData} className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 w-full p-3 rounded-xl transition-colors font-medium text-sm"><Download className="w-4 h-4"/> Exportar Datos</button>
-          <button onClick={handleImportClick} className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 w-full p-3 rounded-xl transition-colors font-medium text-sm"><Upload className="w-4 h-4"/> Importar Datos</button>
+          
           <button onClick={() => signOut(auth)} className="flex items-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 w-full p-3 rounded-xl transition-colors font-medium text-sm border-t border-slate-100 dark:border-slate-800 mt-2 pt-4"><LogOut className="w-4 h-4"/> Salir</button>
         </div>
       </div>
