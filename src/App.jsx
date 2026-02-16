@@ -4,7 +4,7 @@ import {
   Save, X, Trash2, Activity, Clock, LogOut, Lock, PlusCircle, 
   Download, Upload, Moon, Sun, Camera, Edit2, Check, AlertTriangle,
   ExternalLink, List, Tag, MessageCircle, Phone, DollarSign, TrendingUp, BarChart3, PieChart,
-  Code, Linkedin // Nuevo icono para LinkedIn
+  Code, Linkedin 
 } from 'lucide-react';
 
 // --- IMPORTANTE: Instala firebase primero: npm install firebase ---
@@ -30,7 +30,8 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 
-// --- CONFIGURACIÓN DE FIREBASE (Tus credenciales) ---
+// --- CONFIGURACIÓN DE FIREBASE ---
+// Usamos las claves directas para asegurar que funcione en el previsualizador
 const firebaseConfig = {
   apiKey: "AIzaSyCWMcQxF8ERx0ClExjFo6czkJjfQYx-GcQ",
   authDomain: "gestioncitas-app.firebaseapp.com",
@@ -41,11 +42,11 @@ const firebaseConfig = {
 };
 
 // --- CONFIGURACIÓN DEL DESARROLLADOR ---
-// ¡PON AQUÍ TU NÚMERO PARA QUE TE CONTACTEN!
 const DEVELOPER_PHONE = "51930515909"; 
 const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/pedro-espinoza/";
 
-const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
+// Validación simple
+const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
 let auth, db;
 if (isConfigured) {
@@ -70,7 +71,6 @@ const Badge = ({ status }) => {
     Activo: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     "En Pausa": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     Alta: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-    // Estados de Pago
     Pagado: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     Pendiente: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   };
@@ -113,7 +113,7 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
   );
 };
 
-// --- HELPER: GENERAR ARCHIVO .ICS (CALENDARIO NATIVO) ---
+// --- HELPER: GENERAR ARCHIVO .ICS ---
 const downloadIcsFile = (appt) => {
   const start = new Date(`${appt.date}T${appt.time}`);
   const end = new Date(start.getTime() + 60 * 60 * 1000); 
@@ -850,103 +850,6 @@ const PatientDetailsView = ({ selectedPatient, patients, setView, setFormData, h
   );
 };
 
-const CalendarView = ({ appointments, setApptFormData, setView, handleDelete, patients, onEdit }) => {
-  const groupedAppts = appointments.reduce((acc, appt) => {
-    if (!acc[appt.date]) acc[appt.date] = [];
-    acc[appt.date].push(appt);
-    return acc;
-  }, {});
-  const sortedDates = Object.keys(groupedAppts).sort();
-  const today = new Date().toISOString().split('T')[0];
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Agenda de Citas</h2>
-        <button onClick={() => { setApptFormData({ date: today }); setView('appt-form'); }} className="btn-primary flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          <PlusCircle className="w-4 h-4" /> Nueva Cita
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {sortedDates.length === 0 && <div className="text-center py-12 text-slate-400">No hay citas programadas.</div>}
-          {sortedDates.map(date => (
-            <div key={date} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-               <div className={`px-4 py-2 text-sm font-bold border-b border-slate-100 dark:border-slate-700 ${date === today ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300'}`}>
-                 {new Date(date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                 {date === today && " (Hoy)"}
-               </div>
-               <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                 {groupedAppts[date].map(appt => {
-                   const waLink = getWhatsAppUrl(appt, patients);
-                   const isPaid = appt.paymentStatus === 'Pagado';
-                   
-                   return (
-                   <div key={appt.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                     <div className="flex gap-4">
-                       <span className="font-mono text-slate-500 dark:text-slate-400 font-medium">{appt.time}</span>
-                       <div>
-                         <div className="flex items-center gap-2">
-                           <p className="font-bold text-slate-800 dark:text-white">{appt.patientName}</p>
-                           {/* INDICADOR DE PAGO */}
-                           {appt.cost > 0 && (
-                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isPaid ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'}`}>
-                               {isPaid ? 'S/' : 'S/⏳'}
-                             </span>
-                           )}
-                         </div>
-                         {appt.note && <p className="text-sm text-slate-500 dark:text-slate-400">{appt.note}</p>}
-                       </div>
-                     </div>
-                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                       {/* BOTÓN WHATSAPP */}
-                       {waLink && (
-                         <a 
-                           href={waLink} 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           className="text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 p-2"
-                           title="Enviar recordatorio por WhatsApp"
-                         >
-                           <MessageCircle className="w-4 h-4"/>
-                         </a>
-                       )}
-                       {/* BOTÓN GOOGLE CALENDAR */}
-                       <button
-                         onClick={() => downloadIcsFile(appt)} 
-                         className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
-                         title="Agregar a Google Calendar"
-                       >
-                         <Calendar className="w-4 h-4"/>
-                       </button>
-                       {/* BOTÓN EDITAR */}
-                       <button 
-                         onClick={() => onEdit(appt)} 
-                         className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 p-2"
-                         title="Editar cita"
-                       >
-                         <Edit2 className="w-4 h-4"/>
-                       </button>
-                       <button onClick={() => handleDelete('appointments', appt.id)} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-2"><Trash2 className="w-4 h-4"/></button>
-                     </div>
-                   </div>
-                 )})}
-               </div>
-            </div>
-          ))}
-        </div>
-        <div className="hidden lg:block">
-          <Card className="p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30 sticky top-4">
-            <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-2">Resumen</h3>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">Tienes {appointments.length} citas en total.</p>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // --- Componente Principal APP ---
 
 export default function App() {
@@ -1247,12 +1150,13 @@ export default function App() {
         onConfirm={confirmModal.onConfirm} 
         onCancel={closeModal} 
       />
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform md:relative md:translate-x-0 flex flex-col h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center flex-shrink-0">
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xl"><Activity/> GestiónCitas</div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-500 dark:text-slate-400"><X/></button>
         </div>
-        <nav className="p-4 space-y-2">
+        
+        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           <button onClick={() => { setView('dashboard'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'dashboard' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Users className="w-5 h-5"/> Panel</button>
           <button onClick={() => { setView('calendar'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'calendar' || view === 'appt-form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Calendar className="w-5 h-5"/> Agenda</button>
           <button onClick={() => { setView('patients'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'patients' || view === 'details' || view === 'form' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><FileText className="w-5 h-5"/> Pacientes</button>
@@ -1260,7 +1164,8 @@ export default function App() {
           <button onClick={() => { setView('finance'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'finance' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><DollarSign className="w-5 h-5"/> Finanzas</button>
           <button onClick={() => { setView('stats'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'stats' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><BarChart3 className="w-5 h-5"/> Estadísticas</button>
         </nav>
-        <div className="absolute bottom-0 w-full p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2 flex-shrink-0">
           
           {/* Botón de Contactar al Desarrollador (WhatsApp) */}
           <a 
@@ -1308,7 +1213,7 @@ export default function App() {
         </div>
       </div>
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-100 dark:bg-slate-950 transition-colors duration-200">
-        <div className="md:hidden p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+        <div className="md:hidden p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0">
            <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 dark:text-slate-400"><Users/></button>
            <span className="font-bold text-slate-800 dark:text-white">GestiónCitas</span>
            <div className="w-6"></div>
